@@ -21,16 +21,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: python .github/update.py
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: v${{ steps.update.outputs.NETBIRD_VERSION }}
-        release_name: v${{ steps.update.outputs.NETBIRD_VERSION }}
-        draft: false
-        prerelease: false
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v4
       with:
