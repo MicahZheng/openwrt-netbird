@@ -1,10 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [ main ]
-    tags: [ 'v*' ]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -42,10 +39,10 @@ jobs:
           go mod init foobar
 
           git clone https://github.com/kuoruan/openwrt-upx.git package/upx
-          git -C package/upx checkout 2c2ee0d696ea6084bee893a2861a7ed0729728ed # upx version: v2022-10-20
+          git -C package/upx checkout b3a314cf007efdd1b14b578832b3ec3fda49ce69 # upx version: v2022-10-20
 
           #cat feeds.conf.default >> feeds.conf
-          echo 'src-git packages https://git.openwrt.org/feed/packages.git^8939b43659dabe9b737feee02976949ad0355adc' >> feeds.conf # feeds/packages: OpenWrt v23.05.0-rc2
+          echo 'src-git packages https://git.openwrt.org/feed/packages.git^444cedf4ff7a3cd6bc60bdc83f9f33ab7fcc4eac' >> feeds.conf # feeds/packages: OpenWrt v23.05.0-rc2
           cat feeds.conf
 
           ./scripts/feeds update -a > /dev/null
