@@ -40,7 +40,7 @@ jobs:
           git -C package/upx checkout 2c2ee0d696ea6084bee893a2861a7ed0729728ed # upx version: v2022-10-20
 
           #cat feeds.conf.default >> feeds.conf
-          echo 'src-git packages https://git.openwrt.org/feed/packages.git^444cedf4ff7a3cd6bc60bdc83f9f33ab7fcc4eac' >> feeds.conf # feeds/packages: OpenWrt v23.05.0-rc2
+          echo 'src-git packages https://git.openwrt.org/feed/packages.git^564e6e08d7faa14ea1c1c0391fb8295183671c0d' >> feeds.conf # feeds/packages: OpenWrt v23.05.0-rc2
           cat feeds.conf
 
           ./scripts/feeds update -a > /dev/null
