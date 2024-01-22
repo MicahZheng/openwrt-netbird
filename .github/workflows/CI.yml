@@ -1,4 +1,4 @@
-name: single_cl
+name: CI
 
 on:
   push:
