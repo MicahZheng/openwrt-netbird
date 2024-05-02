@@ -118,10 +118,12 @@ jobs:
 
       - name: Upload firmware to release
         uses: softprops/action-gh-release@v2
-        if: success() && !cancelled()
+        if: success() && !cancelled() && "startsWith(github.ref, 'refs/tags/')"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ env.VERSION }}
-          files: |
-            openwrt-sdk/packed/*.ipk
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file_glob: true
+          overwrite: true
+          file: openwrt-sdk/packed/*.ipk
+          tag: ${{ github.ref }}
