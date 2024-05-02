@@ -29,6 +29,8 @@ jobs:
       - name: Set update
         id: set-update
         run: |
+          git config --global user.email "micah.com.cn@gmail.com"
+          git config --global user.name "moonmicah"
           git pull
           status=$(git status -s | grep -E 'netbird/Makefile' | awk '{printf " %s", $2}')
           if [ -n "${status}" ]; then
