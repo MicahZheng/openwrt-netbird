@@ -2,84 +2,133 @@ name: release
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      update: ${{ env.update }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Init Env
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          sudo timedatectl set-timezone "Asia/Shanghai"
+  
+      - name: Check
+        run: |
+          REPO="netbirdio/netbird"
+          latesttag=$(curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -sL https://api.github.com/repos/${REPO}/releases/latest | jq -r .tag_name)
+          localetag=$(grep "^PKG_VERSION" netbird/Makefile | sed "s/.*=\(.*\)/\1/")
+          if [ "${latesttag/v/}" != "${localetag}" ]; then
+            PKG_VERSION=${latesttag/v/}
+            PKG_HASH="$(curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -sL https://codeload.github.com/${REPO}/tar.gz/v${PKG_VERSION} | sha256sum | cut -d ' ' -f 1)"
+            sed -i "s/^PKG_VERSION.*/PKG_VERSION:=${PKG_VERSION}/" netbird/Makefile
+            sed -i "s/^PKG_HASH.*/PKG_HASH:=${PKG_HASH}/" netbird/Makefile
+            echo "package_version=$PKG_VERSION" >>$GITHUB_ENV
+          fi
+          
+      - name: Set update
+        id: set-update
+        run: |
+          git pull
+          status=$(git status -s | grep -E 'netbird/Makefile' | awk '{printf " %s", $2}')
+          if [ -n "${status}" ]; then
+            git add netbird/Makefile
+            git commit -m "update to $package_version $(date +%Y-%m-%d" "%H:%M:%S)"
+            git push -f
+            echo "update=true" >>$GITHUB_ENV
+          else
+            echo "update=false" >>$GITHUB_ENV
+          fi
+  
   build:
     name: Build - ${{ matrix.target.arch }}
+    needs: check
+    if: needs.check.outputs.update == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         target:
           - arch: "aarch64_generic"
-            sdk: "https://downloads.openwrt.org/releases/22.03.5/targets/rockchip/armv8/openwrt-sdk-22.03.5-rockchip-armv8_gcc-11.2.0_musl.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/23.05.2/targets/rockchip/armv8/openwrt-sdk-23.05.2-rockchip-armv8_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
           - arch: "arm_cortex-a9"
-            sdk: "https://downloads.openwrt.org/releases/22.03.5/targets/bcm53xx/generic/openwrt-sdk-22.03.5-bcm53xx-generic_gcc-11.2.0_musl_eabi.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/23.05.2/targets/bcm53xx/generic/openwrt-sdk-23.05.2-bcm53xx-generic_gcc-12.3.0_musl_eabi.Linux-x86_64.tar.xz"
           - arch: "arm_cortex-a15"
-            sdk: "https://downloads.openwrt.org/releases/22.03.5/targets/ipq806x/generic/openwrt-sdk-22.03.5-ipq806x-generic_gcc-11.2.0_musl_eabi.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/23.05.2/targets/ipq806x/generic/openwrt-sdk-23.05.2-ipq806x-generic_gcc-12.3.0_musl_eabi.Linux-x86_64.tar.xz"
           - arch: "aarch64_cortex-a53"
-            sdk: "https://downloads.openwrt.org/releases/22.03.5/targets/bcm27xx/bcm2710/openwrt-sdk-22.03.5-bcm27xx-bcm2710_gcc-11.2.0_musl.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/23.05.2/targets/bcm27xx/bcm2710/openwrt-sdk-23.05.2-bcm27xx-bcm2710_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
           - arch: "aarch64_cortex-a72"
-            sdk: "https://downloads.openwrt.org/releases/22.03.5/targets/bcm27xx/bcm2711/openwrt-sdk-22.03.5-bcm27xx-bcm2711_gcc-11.2.0_musl.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/23.05.2/targets/bcm27xx/bcm2711/openwrt-sdk-23.05.2-bcm27xx-bcm2711_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
           - arch: "arm_cortex-a7_neon-vfpv4"
-            sdk: "https://downloads.openwrt.org/releases/22.03.5/targets/ipq40xx/generic/openwrt-sdk-22.03.5-ipq40xx-generic_gcc-11.2.0_musl_eabi.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/23.05.2/targets/ipq40xx/generic/openwrt-sdk-23.05.2-ipq40xx-generic_gcc-12.3.0_musl_eabi.Linux-x86_64.tar.xz"
           - arch: "x86_64"
-            sdk: "https://downloads.openwrt.org/releases/22.03.5/targets/x86/64/openwrt-sdk-22.03.5-x86-64_gcc-11.2.0_musl.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
           - arch: "i386_pentium4"
-            sdk: "https://downloads.openwrt.org/releases/22.03.5/targets/x86/generic/openwrt-sdk-22.03.5-x86-generic_gcc-11.2.0_musl.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/23.05.2/targets/x86/generic/openwrt-sdk-23.05.2-x86-generic_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
           - arch: "mips_74kc"
-            sdk: "https://downloads.openwrt.org/releases/22.03.5/targets/ath79/generic/openwrt-sdk-22.03.5-ath79-generic_gcc-11.2.0_musl.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/23.05.2/targets/ath79/generic/openwrt-sdk-23.05.2-ath79-generic_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
           - arch: "mipsel_24kc"
-            sdk: "https://downloads.openwrt.org/releases/22.03.5/targets/ramips/mt7621/openwrt-sdk-22.03.5-ramips-mt7621_gcc-11.2.0_musl.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/23.05.2/targets/ramips/mt7621/openwrt-sdk-23.05.2-ramips-mt7621_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
     steps:
-      - uses: actions/checkout@v2
-      - name: Install build requirements
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential ccache ecj fastjar file g++ gawk \
-          gettext git java-propose-classpath libelf-dev libncurses5-dev \
-          libncursesw5-dev libssl-dev python3 unzip wget \
-          python3-distutils python3-setuptools python3-dev rsync subversion \
-          swig time xsltproc zlib1g-dev
+          sudo apt update
+          sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+          bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib \
+          git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev \
+          libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libreadline-dev libssl-dev libtool lrzsz \
+          mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pyelftools \
+          libpython3-dev qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip \
+          vim wget xmlto xxd zlib1g-dev python3-setuptools npm
+          sudo apt install --reinstall libc6
+          sudo systemctl daemon-reload
+          sudo apt -y autoremove --purge
+          sudo apt clean
 
       - name: Install OpenWrt SDK
         run: |
-          wget -O openwrt-sdk.tar.xz ${{ matrix.target.sdk }}
-          xz -q -d openwrt-sdk.tar.xz && tar -xvf openwrt-sdk.tar
+          wget ${{ matrix.target.sdk }} -O openwrt-sdk.tar.xz
+          tar -xf openwrt-sdk.tar.xz
           mv -f openwrt-sdk-* openwrt-sdk
+
       - name: Build Package
         run: |
-          echo "src-link netbird $GITHUB_WORKSPACE" > openwrt-sdk/feeds.conf
-          echo 'CONFIG_PACKAGE_netbird=y
-          ' >> openwrt-sdk/.config
+          git pull
           cd openwrt-sdk
-
-          git clone https://github.com/kuoruan/openwrt-upx.git package/upx
-          git -C package/upx checkout 2c2ee0d696ea6084bee893a2861a7ed0729728ed # upx version: v2022-10-20
-
-          #cat feeds.conf.default >> feeds.conf
-          echo 'src-git packages https://git.openwrt.org/feed/packages.git^8939b43659dabe9b737feee02976949ad0355adc' >> feeds.conf # feeds/packages: OpenWrt v23.05.0-rc2
-          cat feeds.conf
-
-          ./scripts/feeds update -a > /dev/null
-          rm -rf ./feeds/packages/net/netbird
+          cp -rf ../netbird ./package/
+          sed -i "1i\\src-link netbird $(pwd)/package" feeds.conf.default
+          
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          
           make defconfig
-
-          ./scripts/feeds install -d y -f -a
           make package/netbird/compile V=s CONFIG_NETBIRD_COMPRESS_UPX=y
-          tree bin/packages/
-      - name: Archive package
-        uses: actions/upload-artifact@v2
+          mkdir -p packed && find bin/ -type f -name '*netbird*' -exec mv -t packed {} +
+          echo "VERSION=v$(grep "^PKG_VERSION" package/netbird/Makefile | sed "s/.*=\(.*\)/\1/")" >>$GITHUB_ENV
+
+      - name: Upload to Artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: netbird-${{ matrix.target.arch }}
-          path: openwrt-sdk/bin/packages/*/netbird/netbird*.ipk
+          path: openwrt-sdk/packed/*.ipk
           if-no-files-found: error
-      - name: Upload package to GitHub Release
-        uses: svenstaro/upload-release-action@v2
-        if: "startsWith(github.ref, 'refs/tags/')"
+
+      - name: Upload firmware to release
+        uses: softprops/action-gh-release@v2
+        if: success() && !cancelled()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file_glob: true
-          overwrite: true
-          file: openwrt-sdk/bin/packages/*/netbird/netbird*.ipk
-          tag: ${{ github.ref }}
+          tag_name: ${{ env.VERSION }}
+          files: |
+            openwrt-sdk/packed/*.ipk
