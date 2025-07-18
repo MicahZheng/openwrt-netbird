@@ -2,54 +2,62 @@ name: release
 
 on:
   repository_dispatch:
-    types:
-      - release
+    types: [release]
   workflow_dispatch:
-#  schedule:
-#    - cron: '0 0 * * 0'
+    inputs:
+      version:
+        description: 'Netbird version (e.g. 0.50.3), leave blank for latest'
+        required: false
 
 jobs:
   check:
     runs-on: ubuntu-latest
     outputs:
-      update: ${{ env.update }}
+      update: ${{ steps.set-update.outputs.update }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
 
       - name: Init Env
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
           sudo timedatectl set-timezone "Asia/Shanghai"
-  
-      - name: Check
+
+      - name: Determine Version
+        id: version
         run: |
-          REPO="netbirdio/netbird"
-          latesttag=$(curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -sL https://api.github.com/repos/${REPO}/releases/latest | jq -r .tag_name)
-          localetag=$(grep "^PKG_VERSION" netbird/Makefile | sed "s/.*=\(.*\)/\1/")
-          if [ "${latesttag/v/}" != "${localetag}" ]; then
-            PKG_VERSION=${latesttag/v/}
-            PKG_HASH="$(curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -sL https://codeload.github.com/${REPO}/tar.gz/v${PKG_VERSION} | sha256sum | cut -d ' ' -f 1)"
-            sed -i "s/^PKG_VERSION.*/PKG_VERSION:=${PKG_VERSION}/" netbird/Makefile
-            sed -i "s/^PKG_HASH.*/PKG_HASH:=${PKG_HASH}/" netbird/Makefile
-            echo "package_version=$PKG_VERSION" >>$GITHUB_ENV
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=$(curl -sL https://api.github.com/repos/netbirdio/netbird/releases/latest | jq -r .tag_name | sed 's/^v//')
           fi
-          
-      - name: Set update
+          echo "PKG_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Update Makefile
+        run: |
+          PKG_HASH=$(curl -sL https://codeload.github.com/netbirdio/netbird/tar.gz/v${PKG_VERSION} | sha256sum | cut -d ' ' -f1)
+          sed -i "s/^PKG_VERSION.*/PKG_VERSION:=${PKG_VERSION}/" netbird/Makefile
+          sed -i "s/^PKG_HASH.*/PKG_HASH:=${PKG_HASH}/" netbird/Makefile
+
+      - name: Commit Update if Needed
         id: set-update
         run: |
           git pull
-          status=$(git status -s | grep -E 'netbird/Makefile' | awk '{printf " %s", $2}')
-          if [ -n "${status}" ]; then
+          if git status -s | grep -q netbird/Makefile; then
             git add netbird/Makefile
-            git commit -m "update to $package_version $(date +%Y-%m-%d" "%H:%M:%S)"
-            git push -f
-            echo "update=true" >>$GITHUB_ENV
+            git commit -m "Update netbird to ${PKG_VERSION} $(date +'%Y-%m-%d %H:%M:%S')"
+            git push
+            echo "update=true" >> $GITHUB_ENV
+            echo "update=true" >> $GITHUB_OUTPUT
           else
-            echo "update=false" >>$GITHUB_ENV
+            echo "update=false" >> $GITHUB_ENV
+            echo "update=false" >> $GITHUB_OUTPUT
           fi
-  
+
   build:
     name: Build - ${{ matrix.target.arch }}
     needs: check
@@ -83,6 +91,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@main
 
+      - name: Checkout Pull latest changes to ensure correct Makefile version
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git pull origin main
+
       - name: Install dependencies
         run: |
           sudo apt update
@@ -93,10 +107,6 @@ jobs:
           mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python3 python3-pyelftools \
           libpython3-dev qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip \
           vim wget xmlto xxd zlib1g-dev python3-setuptools npm
-          sudo apt install --reinstall libc6
-          sudo systemctl daemon-reload
-          sudo apt -y autoremove --purge
-          sudo apt clean
 
       - name: Install OpenWrt SDK
         run: |
@@ -106,22 +116,18 @@ jobs:
 
       - name: Build Package
         run: |
-          git pull
           cd openwrt-sdk
           cp -rf ../netbird ./package/
-          sed -i "1i\\src-link netbird $(pwd)/package" feeds.conf.default
-          
+          echo "src-link netbird $(pwd)/package" >> feeds.conf.default
+
           ./scripts/feeds update -a
-          if [ -d ./feeds/packages/lang/golang ]; then
-            rm -rf ./feeds/packages/lang/golang
-            git clone https://github.com/sbwml/packages_lang_golang -b 23.x ./feeds/packages/lang/golang
-          fi
+          rm -rf ./feeds/packages/lang/golang
+          git clone https://github.com/sbwml/packages_lang_golang -b 23.x ./feeds/packages/lang/golang
           ./scripts/feeds install -a
-          
+
           make defconfig
           make package/netbird/compile V=s CONFIG_NETBIRD_COMPRESS_UPX=y
           mkdir -p packed && find bin/ -type f -name '*netbird*' -exec mv -t packed {} +
-          echo "VERSION=v$(grep "^PKG_VERSION" package/netbird/Makefile | sed "s/.*=\(.*\)/\1/")" >>$GITHUB_ENV
 
       - name: Upload to Artifacts
         uses: actions/upload-artifact@v4
@@ -136,6 +142,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ env.VERSION }}
-          files: |
-            openwrt-sdk/packed/*.ipk
+          tag_name: v${{ needs.check.outputs.version }}
+          files: openwrt-sdk/packed/*.ipk
