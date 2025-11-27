@@ -68,25 +68,25 @@ jobs:
       matrix:
         target:
           - arch: "aarch64_generic"
-            sdk: "https://downloads.openwrt.org/releases/23.05.4/targets/rockchip/armv8/openwrt-sdk-23.05.4-rockchip-armv8_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/24.10.4/targets/rockchip/armv8/openwrt-sdk-24.10.4-rockchip-armv8_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
           - arch: "arm_cortex-a9"
-            sdk: "https://downloads.openwrt.org/releases/23.05.4/targets/bcm53xx/generic/openwrt-sdk-23.05.4-bcm53xx-generic_gcc-12.3.0_musl_eabi.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/24.10.4/targets/bcm53xx/generic/openwrt-sdk-24.10.4-bcm53xx-generic_gcc-13.3.0_musl_eabi.Linux-x86_64.tar.zst"
           - arch: "arm_cortex-a15"
-            sdk: "https://downloads.openwrt.org/releases/23.05.4/targets/ipq806x/generic/openwrt-sdk-23.05.4-ipq806x-generic_gcc-12.3.0_musl_eabi.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/24.10.4/targets/ipq806x/generic/openwrt-sdk-24.10.4-ipq806x-generic_gcc-13.3.0_musl_eabi.Linux-x86_64.tar.zst"
           - arch: "aarch64_cortex-a53"
-            sdk: "https://downloads.openwrt.org/releases/23.05.4/targets/bcm27xx/bcm2710/openwrt-sdk-23.05.4-bcm27xx-bcm2710_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/24.10.4/targets/bcm27xx/bcm2710/openwrt-sdk-24.10.4-bcm27xx-bcm2710_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
           - arch: "aarch64_cortex-a72"
-            sdk: "https://downloads.openwrt.org/releases/23.05.4/targets/bcm27xx/bcm2711/openwrt-sdk-23.05.4-bcm27xx-bcm2711_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/24.10.4/targets/bcm27xx/bcm2711/openwrt-sdk-24.10.4-bcm27xx-bcm2711_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
           - arch: "arm_cortex-a7_neon-vfpv4"
-            sdk: "https://downloads.openwrt.org/releases/23.05.4/targets/ipq40xx/generic/openwrt-sdk-23.05.4-ipq40xx-generic_gcc-12.3.0_musl_eabi.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/24.10.4/targets/ipq40xx/generic/openwrt-sdk-24.10.4-ipq40xx-generic_gcc-13.3.0_musl_eabi.Linux-x86_64.tar.zst"
           - arch: "x86_64"
-            sdk: "https://downloads.openwrt.org/releases/23.05.4/targets/x86/64/openwrt-sdk-23.05.4-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/24.10.4/targets/x86/64/openwrt-sdk-24.10.4-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
           - arch: "i386_pentium4"
-            sdk: "https://downloads.openwrt.org/releases/23.05.4/targets/x86/generic/openwrt-sdk-23.05.4-x86-generic_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/24.10.4/targets/x86/generic/openwrt-sdk-24.10.4-x86-generic_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
           - arch: "mips_74kc"
-            sdk: "https://downloads.openwrt.org/releases/23.05.4/targets/ath79/generic/openwrt-sdk-23.05.4-ath79-generic_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/24.10.4/targets/ath79/generic/openwrt-sdk-24.10.4-ath79-generic_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
           - arch: "mipsel_24kc"
-            sdk: "https://downloads.openwrt.org/releases/23.05.4/targets/ramips/mt7621/openwrt-sdk-23.05.4-ramips-mt7621_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+            sdk: "https://downloads.openwrt.org/releases/24.10.4/targets/ramips/mt7621/openwrt-sdk-24.10.4-ramips-mt7621_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
     steps:
       - name: Checkout
         uses: actions/checkout@main
@@ -110,8 +110,8 @@ jobs:
 
       - name: Install OpenWrt SDK
         run: |
-          wget ${{ matrix.target.sdk }} -O openwrt-sdk.tar.xz
-          tar -xf openwrt-sdk.tar.xz
+          wget ${{ matrix.target.sdk }} -O openwrt-sdk.tar.zst
+          tar -xf openwrt-sdk.tar.zst
           mv -f openwrt-sdk-* openwrt-sdk
 
       - name: Build Package
@@ -122,7 +122,7 @@ jobs:
 
           ./scripts/feeds update -a
           rm -rf ./feeds/packages/lang/golang
-          git clone https://github.com/sbwml/packages_lang_golang -b 23.x ./feeds/packages/lang/golang
+          git clone https://github.com/sbwml/packages_lang_golang -b 25.x ./feeds/packages/lang/golang
           ./scripts/feeds install -a
 
           make defconfig
