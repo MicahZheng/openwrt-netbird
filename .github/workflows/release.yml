@@ -149,12 +149,21 @@ jobs:
           name: netbird-${{ matrix.target.arch }}
           path: openwrt-sdk/packed/*.ipk
           if-no-files-found: error
+  release:
+    name: Publish Release
+    needs: [check, build]
+    if: needs.check.outputs.update == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
 
-      - name: Upload firmware to release
+      - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
-        if: success() && !cancelled()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ needs.check.outputs.version }}
-          files: openwrt-sdk/packed/*.ipk
+          files: dist/**/*.ipk
